@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
+import "@openzeppelin/contracts/governance/TimelockController.sol";
 
 interface IBEP20 {
     /**
@@ -203,6 +204,7 @@ contract Ownable is Context {
 }
 
 contract WowToken is Context, IBEP20, Ownable {
+    address public timelock;
     mapping(address => uint256) private _balances;
 
     mapping(address => mapping(address => uint256)) private _allowances;
@@ -374,21 +376,22 @@ contract WowToken is Context, IBEP20, Ownable {
         return true;
     }
 
+    function setTimelock(address _timelock) external onlyOwner {
+        require(timelock == address(0), "Timelock already set");
+        timelock = _timelock;
+    }
+
     /**
      * @dev Creates `amount` tokens and assigns them to `msg.sender`, increasing
      * the total supply.
      *
      * Requirements
      *
-     * - `msg.sender` must be the token owner
+     * - `msg.sender` must be the timelock
      */
-    function mint(address sender, uint256 amount)
-        external
-        onlyOwner
-        returns (bool)
-    {
-        _mint(sender, amount);
-        return true;
+    function mint(address to, uint256 amount) external {
+        require(msg.sender == timelock, "Only timelock can mint");
+        _mint(to, amount);
     }
 
     /**
@@ -488,4 +491,13 @@ contract WowToken is Context, IBEP20, Ownable {
         emit Approval(owner, spender, amount);
     }
 
+}
+
+contract WowTokenTimelock is TimelockController {
+    constructor(
+        uint256 minDelay,
+        address[] memory proposers,
+        address[] memory executors,
+        address admin
+    ) TimelockController(minDelay, proposers, executors, admin) {}
 }
